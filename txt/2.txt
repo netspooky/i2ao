@@ -1,0 +1,58 @@
+--- [2] Hello World In Assembly --------------------------------------------//--
+
+[ CODE - bigsmile.asm ]
+
+SECTION .DATA
+  msg:     db "[^0^] u!!",10
+  msgLen:  equ $-msg
+
+SECTION .TEXT
+GLOBAL _start
+
+_start:
+; Print ----------------------------------------------------------------
+  mov rax, 1      ; Syscall 1
+  mov rdi, 1      ; The File Descriptor - STDOUT
+  mov rsi, msg    ; Pointer to the message
+  mov rdx, msgLen ; Length of the Message
+  syscall
+
+; Exit -----------------------------------------------------------------
+  mov rax, 60     ; Syscall 60
+  mov rdi, 0      ; Error code - eg return 0;
+  syscall
+
+[ Build and Execute ]
+
+ nasm -f elf64 bigsmile.asm -o bigsmile.o
+ ld bigsmile.o -o bigsmile
+ ./bigsmile
+
+[ Read attributes about the elf binary ]
+
+ readelf -a bigsmile
+
+[ Disassembly ]
+
+ r2 bigsmile
+
+[0x00400082]> pd
+  ;-- entry0:
+  ;-- section..TEXT:
+  ;-- rip:
+  0x00400082 b801000000     mov eax, 1
+  0x00400087 bf01000000     mov edi, 1
+  0x0040008c 48be78004000.  movabs rsi, 0x400078 ; section..DATA ;"[^0^] u!!\n"
+  0x00400096 ba0a000000     mov edx, 0xa
+  0x0040009b 0f05           syscall
+  0x0040009d b83c000000     mov eax, 0x3c
+  0x004000a2 bf00000000     mov edi, 0
+  0x004000a7 0f05           syscall
+
+[ Changes Made ]
+
+ - Using syscalls directly
+ - Using nasm to compile and ld to link
+
+ -----------------------------------------------------------------------------
+  [ PREV ] curl -sL n0.lol/i2ao/1             [ NEXT ] curl -sL n0.lol/i2ao/3

@@ -1,0 +1,141 @@
+--- [5] Further Optimizations ----------------------------------------------//--
+
+ Now that we have a whacky ELF binary to mess around in, and have established
+ methods of referencing data, here is where the more interesting things begin.
+
+ Let's take a look at the code and build it, then discuss what is going on.
+
+[ Code - smol.asm ]
+
+BITS 64
+        org 0x100000000  ; Where to load this into memory
+;----------------------+------+-------------+----------+------------------------
+; ELF Header struct    | OFFS | ELFHDR      | PHDR     | ASSEMBLY OUTPUT
+;----------------------+------+-------------+----------+------------------------
+        db 0x7F, "ELF" ; 0x00 | e_ident     |          | 7f 45 4c 46
+msg:    dd 0x5e305e5b  ; 0x04 |             |          | 5b 5e 30 5e "^0^["
+        dd 0x2175205d  ; 0x08 |             |          | 5d 20 75 21 "!u ]"
+        dw 0x0a21      ; 0x0C |             |          | 21 0a       "\n!"
+        dw 0x0         ; 0x0E |             |          | 00 00
+;----------------------+------+-------------+----------+------------------------
+; ELF Header struct ct.| OFFS | ELFHDR      | PHDR     | ASSEMBLY OUTPUT
+;----------------------+------+-------------+----------+------------------------
+        dw 2           ; 0x10 | e_type      |          | 02 00
+        dw 0x3e        ; 0x12 | e_machine   |          | 3e 00
+        dd 1           ; 0x14 | e_version   |          | 01 00 00 00
+        dd _start - $$ ; 0x18 | e_entry     |          | 04 00 00 00
+;----------------------+------+-------------+----------+------------------------
+; Program Header Begin | OFFS | ELFHDR      | PHDR     | ASSEMBLY OUTPUT
+;----------------------+------+-------------+----------+------------------------
+phdr:   dd 1           ; 0x1C |   ...       | p_type   | 01 00 00 00
+        dd phdr - $$   ; 0x20 | e_phoff     | p_flags  | 1c 00 00 00
+        dd 0           ; 0x24 |   ...       | p_offset | 00 00 00 00
+        dd 0           ; 0x28 | e_shoff     |   ...    | 00 00 00 00
+        dq $$          ; 0x2C |   ...       | p_vaddr  | 00 00 00 00
+                       ; 0x30 | e_flags     |   ...    | 01 00 00 00
+        dw 0x40        ; 0x34 | e_shsize    | p_addr   | 40 00
+        dw 0x38        ; 0x36 | e_phentsize |   ...    | 38 00
+        dw 1           ; 0x38 | e_phnum     |   ...    | 01 00
+        dw 2           ; 0x3A | e_shentsize |   ...    | 02 00
+        dq 2           ; 0x3C | e_shnum     | p_filesz | 02 00 00 00 00 00 00 00
+        dq 2           ; 0x44 |             | p_memsz  | 02 00 00 00 00 00 00 00
+        dq 2           ; 0x4C |             | p_align  | 02 00 00 00 00 00 00 00
+;--- END OF HEADER -------------------------------------------------------------
+_start:
+;--- Write -----------------------------------------------------------------//--
+  mov al, 1
+  ; mov rdi, rax
+  mov edi, eax
+  ; mov rsi, msg
+  mov esi, eax
+  shl rsi, 0x20
+  mov sil, 4
+  mov dl, 10
+  syscall
+;--- Exit ------------------------------------------------------------------//--
+  mov al, 60
+  xor rdi, rdi
+  syscall
+
+[ Build ]
+
+  nasm -f bin -o smol smol.asm
+
+[ Creating Addresses ]
+
+ Because we're working on such a small scale, everything feels more immediate.
+ We know what is at every byte in our binary, and we can therefore rely on
+ a consistent location to refer to.
+
+ Our previous binary referenced the memory address for our string at the
+ address 0x100000004. The instruction to do this was:
+
+  48be0400000001000000  movabs rsi, 0x100000004
+
+ This is a very long instruction, a total of 10 bytes due to needing a 64 bit
+ register to hold the address. We can create this manually and save space by
+ building the address. Here's the process.
+
+     89 c6        mov    esi,eax
+     48 c1 e6 20  shl    rsi,0x20
+     40 b6 04     mov    sil,0x4
+
+ We copy the value in EAX, which is 1, into ESI.
+
+     RSI 0000000000000000000000000000000000000000000000000000000000000001
+
+ Then we shift RSI to the left by 32 bits (0x20).
+
+     RSI 0000000000000000000000000000000100000000000000000000000000000000
+
+ This creates the value 0x100000000, which is the base address of where we
+ loaded the binary into memory.
+
+ Next, we use the lower 8 bits of RSI to load the last value we need, 4. We
+ now have the address of our string, 0x100000004
+
+     RSI 0000000000000000000000000000000100000000000000000000000000000100
+
+ This saves us an Earth shattering 1 byte, but it also introduces a very
+ important concept in developing exploits.
+
+ Shellcode is injected by a variety of means, and when creating a proper
+ payload for a buffer or heap overflow, certain bytes may be ignored by the
+ application that is being exploited, or by other things like servers that
+ don't handle bytes like 00 (NULL), 0A (\n) or 0D (\r) in a way that you may
+ be hoping for.
+
+ Certain tools, such as msfvenom, are capable of creating payloads that avoid
+ specific bytes ("bad chars"), to aid in exploitation. If we were injecting
+ this payload, there are other ways of referencing strings, such as by direct
+ loading of the desired bytes into registers and then pushing onto the stack,
+ but I wanted to demonstrate methods of referencing data that can be applied
+ to other programs in assembly.
+
+[ Other optimizations ]
+
+ The last optimization we are doing in this lesson is copying EAX to EDI,
+ rather than copying RAX to RDI. When you move data between two 32 bit
+ registers, the upper 32 bits will be zero'd out. This is not the case for
+ the lower registers. Moving data to AL preserves the rest of the data in the
+ upper 56 bits. This is what enabled us to move 4 into SIL in the last
+ section.
+
+  48 89 c7 mov    rdi,rax
+
+ becomes
+
+  89 c7    mov    edi,eax
+
+ Another two byte instruction to achieve a similar effect is inc edi, which
+ increments EDI by 1 from 0.
+
+[ Changes ]
+
+ - Switch RDI with EDI
+ - Instead of loading the address of the string into RSI directly,
+   construct the address by shifting 0x left 20 bits and then moving 4 into SI
+
+ -----------------------------------------------------------------------------
+  [ PREV ] curl -sL n0.lol/i2ao/4
+

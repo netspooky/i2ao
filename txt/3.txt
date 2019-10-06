@@ -1,0 +1,112 @@
+--- [3] Optimizing Hello World in Assembly ---------------------------------//--
+
+[ CODE - smile.asm ]
+
+SECTION .DATA
+  msg:     db "[^0^] u!!",10
+  msgLen:  equ $-msg
+
+SECTION .TEXT
+GLOBAL _start
+
+_start:
+; Print ----------------------------------------------------------------
+  mov al, 1       ; RAX holds syscall 1 (write). We are using the lower
+                  ; 8 bits of RAX with AL. This takes up less bytes.
+  mov rdi, rax    ; RDI holds the file descriptor - STDOUT. We copy the
+                  ; value in RAX and move it there to save space.
+  mov rsi, msg    ; RSI contains the address of our buffer.
+  mov dl, msgLen  ; RDX holds the length of the buffer. We are the lower
+                  ; 8 bits, DL, again for this.
+  syscall         ; Now we call the kernel.
+
+; Exit -----------------------------------------------------------------
+  mov al, 60      ; We are now executing syscall 60 - Exit
+  xor rdi, rdi    ; RDI contains the return value, here it will be 0!
+  syscall         ; Call the kernel one last time.
+
+[ Build & Run ]
+
+ nasm -f elf64 smile.asm -o smile.o
+ ld smile.o -o smile
+ ./smile
+
+--- Note about Registers ---
+
+REF: https://en.wikibooks.org/wiki/X86_Assembly/X86_Architecture
+
+ Registers in x86 can be divided into smaller registers that hold different
+ sized values.
+
+[ Example ]
+
+ RAX is a 64 bit register. It can be broken down like this.
+
+    RAX 0000000000000000000000000000000000000000000000000000000000000000 64
+    EAX                                 00000000000000000000000000000000 32
+     AX                                                 0000000000000000 16
+     AH                                                 00000000          8
+     AL                                                         00000000  8
+
+ Here is a table of all the general purpose registers with their respective
+ subdivisions.
+
+       +-------+-------+-------+-------+-------+-------+-------+-------+
+    64 |   RAX |   RCX |   RDX |   RBX |   RSP |   RBP |   RSI |   RDI |
+    32 |   EAX |   ECX |   EDX |   EBX |   ESP |   EBP |   ESI |   EDI |
+    16 |    AX |    CX |    DX |    BX |    SP |    BP |    SI |    DI |
+     8 | AH|AL | CH|CL | DH|DL | BH|BL |  |SPL |  |BPL |  |SIL |  |DIL |
+       +-------+-------+-------+-------+-------+-------+-------+-------+
+
+ In our newly optimized code, we save space by using the lower 8 bits of
+ RAX and RDX. This is because we are only moving 8 byte values.
+ Registers define the total bit width of the number, so using a 64 bit
+ register will make the integer 1 look like:
+
+  0000000000000000000000000000000000000000000000000000000000000001
+
+ While using the lower 8 bits will make the integer 1 look like:
+
+  00000001
+
+ This reduces the size of the integer on disk by 3 bytes, and the total
+ instruction size by 5 bytes. This may seem insignificant, but it adds up.
+
+             48 c7 c0 01 00 00 00    mov    rax, 1   ; 7 Bytes
+             b0 01                   mov     al, 1   ; 2 Bytes
+
+
+ Another optimization we are using is copying a register to another, instead
+ of moving a number into a register.
+
+             48 c7 c7 01 00 00 00    mov    rdi, 1   ; 7 Bytes
+             48 89 c7                mov    rdi,rax  ; 3 Bytes
+
+ The last optimization we did was XORing RDI with itself. This is a common
+ way to create a 0, rather than moving a 0 into the register.
+
+             48 c7 c7 00 00 00 00    mov    rdi,0    ; 7 Bytes
+             48 31 ff                xor    rdi,rdi  ; 3 Bytes
+
+ We'll cover even more optimizations later on in the workshop.
+
+[ Making the binary smaller ]
+
+ You can use strip to reduce the binary's size. This removes debug symbols
+ that are unnecessary for running the binary on a system.
+
+ ls -lah smile
+ strip smile
+ ls -lah smile
+
+ You'll see that the binary is now much smaller.
+
+[ Changes ]
+
+ - Use smaller registers
+ - XOR a register with itself to create a 0
+ - Copy data between registers instead of moving a number into it
+ - Use Strip to strip the data
+
+ -----------------------------------------------------------------------------
+  [ PREV ] curl -sL n0.lol/i2ao/2             [ NEXT ] curl -sL n0.lol/i2ao/4

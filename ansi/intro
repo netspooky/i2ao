@@ -1,0 +1,49 @@
+[0m[1;31m--- [33mIntro to Assembly Optimization[0m [1;31m-----------------------------------------[37m//[31m--
+[0m
+ [1mHello and welcome to the terminal friendly documentation for the[0m [1;36mIntro to[0m
+ [1;36mAssembly Optimization [37mworkshop. This workshop is a rough draft of what may[0m
+ [1meventually become a full on exploit development training.
+[0m
+ [1mThe target audience is anyone that has a working understanding of programming[0m
+ [1mand some familiarity with low level concepts. This workshop will explore the
+[0m [1moptimization of a "Hello World" program, and take it from C all the way down
+[0m [1mto a highly optimized, hand written, 64 bit ELF binary.[0m
+
+ [1mThis documentation contains notes that you can use to follow along during the
+[0m [1mstream.[0m
+
+[1;31m---[0m [1;33mOutline[0m [1;31m----------------------------------------------------------------[37m//[31m--[36m
+[0m       [1;35m[[37m1[35m][0m [1m......................[33mHello World in C[0m  [1;36mcurl -sL n0.lol/i2ao/1
+[0m
+       [1;35m[[37m2[35m][0m [1m...............[33mHello World in Assembly[0m  [1;36mcurl -sL n0.lol/i2ao/2[0m
+
+       [1;35m[[37m3[35m][0m [1m....[33mOptimizing Hello World in Assembly[0m  [1;36mcurl -sL n0.lol/i2ao/3[0m
+
+       [1;35m[[37m4[35m][0m [1m....[33mWriting an Elf binary from Scratch  [36mcurl -sL n0.lol/i2ao/4
+[0m
+       [1;35m[[37m5[35m][0m [1m..................[33mFurther Optimization[0m  [1;36mcurl -sL n0.lol/i2ao/5[0m
+
+[1;31m--- [33mTools[31m ------------------------------------------------------------------[37m//[31m--[36m
+[0;31m[[1;34m [37mRequired [0;31m]
+[37m
+ [31m-[1;33m A Linux System
+[0m [31m-[1;33m GCC[0m
+ [31m-[37m [1;33mGNU binutils
+[0m [31m-[37m [1;33mxxd or other hex editor[0m
+ [31m-[37m [1;33mA text editor
+[0m
+[31m[[37m [1mOptional[0m [31m][37m
+
+ [31m-[1;36m [33mRadare2 [37m- For debugging
+[0m [31m-[37m [1;33mLinux Man Pages
+[0m
+[31m[[37m [1mOnline Resources[0m [31m][37m
+
+ [31m-[37m [1;33mOnline Disassembler
+[0m   [1;32mhttps://defuse.ca/online-x86-assembler.htm
+[0m [31m-[37m [1;33mSyscall Table
+[0m   [1;32mhttps://syscalls64.paolostivanin.com/
+[0m
+ [1;31m-----------------------------------------------------------------------------
+[32m                                              [0;31m[[1;37m NEXT[32m [0;31m][1;32m [36mcurl -sL n0.lol/i2ao/1
+

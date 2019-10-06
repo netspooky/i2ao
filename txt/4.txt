@@ -1,0 +1,132 @@
+--- [4] Writing an ELF binary from scratch ---------------------------------//--
+
+ In our last two assembly examples, we used nasm to assemble our code, and ld
+ to link it. The binary was very small, because it was written and assembled in
+ this way. Nasm created an ELF binary for us by using the flag -f elf64, which
+ uses the well defined ELF binary format and loads our code into it.
+
+ The next part takes this a step further, where we don't rely on nasm to create
+ an ELF binary for us. We will create the binary ourselves using a custom ELF
+ template. The template itself is mainly here for rapid prototyping of shell
+ code, and allows you to create more reliable payloads using a very well
+ defined structure.
+
+ If you want to read more about the development of this template, you can refer
+ to my previous write ups on ELF Binary Mangling, as well as my golfclub repo.
+ Links are on my website: https://n0.lol
+
+--- Using the custom template ---
+
+ There is so much to cover involving ELF binaries that we won't cover now.
+ I'll run down the most important aspects of it for the purposes of this
+ presentation
+
+ - Everything is hand defined according to the ELF spec
+ - There are locations in the header that we can hide data.
+ - You have 12 bytes to work with from 0x04 to 0x0F
+
+ We are going to jump right into some dirty tricks to hide data, and reference
+ with our optimized code.
+
+[ CODE - tiny.asm ]
+
+BITS 64
+        org 0x100000000  ; Where to load this into memory
+;----------------------+------+-------------+----------+------------------------
+; ELF Header struct    | OFFS | ELFHDR      | PHDR     | ASSEMBLY OUTPUT
+;----------------------+------+-------------+----------+------------------------
+        db 0x7F, "ELF" ; 0x00 | e_ident     |          | 7f 45 4c 46
+msg:    dd 0x5e305e5b  ; 0x04 |             |          | 5b 5e 30 5e "^0^["
+        dd 0x2175205d  ; 0x08 |             |          | 5d 20 75 21 "!u ]"
+        dw 0x0a21      ; 0x0C |             |          | 21 0a       "\n!"
+        dw 0x0         ; 0x0E |             |          | 00 00
+;----------------------+------+-------------+----------+------------------------
+; ELF Header struct ct.| OFFS | ELFHDR      | PHDR     | ASSEMBLY OUTPUT
+;----------------------+------+-------------+----------+------------------------
+        dw 2           ; 0x10 | e_type      |          | 02 00
+        dw 0x3e        ; 0x12 | e_machine   |          | 3e 00
+        dd 1           ; 0x14 | e_version   |          | 01 00 00 00
+        dd _start - $$ ; 0x18 | e_entry     |          | 04 00 00 00
+;----------------------+------+-------------+----------+------------------------
+; Program Header Begin | OFFS | ELFHDR      | PHDR     | ASSEMBLY OUTPUT
+;----------------------+------+-------------+----------+------------------------
+phdr:   dd 1           ; 0x1C |   ...       | p_type   | 01 00 00 00
+        dd phdr - $$   ; 0x20 | e_phoff     | p_flags  | 1c 00 00 00
+        dd 0           ; 0x24 |   ...       | p_offset | 00 00 00 00
+        dd 0           ; 0x28 | e_shoff     |   ...    | 00 00 00 00
+        dq $$          ; 0x2C |   ...       | p_vaddr  | 00 00 00 00
+                       ; 0x30 | e_flags     |   ...    | 01 00 00 00
+        dw 0x40        ; 0x34 | e_shsize    | p_addr   | 40 00
+        dw 0x38        ; 0x36 | e_phentsize |   ...    | 38 00
+        dw 1           ; 0x38 | e_phnum     |   ...    | 01 00
+        dw 2           ; 0x3A | e_shentsize |   ...    | 02 00
+        dq 2           ; 0x3C | e_shnum     | p_filesz | 02 00 00 00 00 00 00 00
+        dq 2           ; 0x44 |             | p_memsz  | 02 00 00 00 00 00 00 00
+        dq 2           ; 0x4C |             | p_align  | 02 00 00 00 00 00 00 00
+;--- END OF HEADER -------------------------------------------------------------
+_start:
+;--- Write -----------------------------------------------------------------//--
+  mov al, 1
+  mov rdi, rax
+  mov rsi, msg
+  mov dl, 10
+  syscall
+;--- Exit ------------------------------------------------------------------//--
+  mov al, 60
+  xor rdi, rdi
+  syscall
+
+[ Build ]
+
+  nasm -f bin -o tiny tiny.asm
+
+ We are now building using the raw bin format. This instructs nasm to not
+ apply any binary templates to the assembled code. This is similar to how
+ you compile 16 bit COM files for DOS.
+
+[ Hiding Data ]
+
+ Since we've jumped right into this hot mess of a binary, we're going to
+ use some of the features of the template as described above.
+
+ Since we know that our string "[^0^] u!!\n" is 10 bytes long, and we have
+ 12 bytes to hide data from 0x04 to 0x0F, let's pack our string into this
+ space.
+
+ Nasm can store chunks of data like so
+
+      dq 0x0123456789ABCDEF      8 bytes - Quad Word
+      dd 0x012345678             4 bytes - Double Word
+      dw 0x0123                  2 bytes - Word
+      db 0x01                    1 byte  - Byte
+
+ To store our string, we need to divide it up and store it in little endian
+ format for nasm to assemble it correctly.
+
+ Our chunks will look like this
+
+    dd 0x5e305e5b ; "^0^["
+    dd 0x2175205d ; "!u ]"
+    dw 0x0a21     ; "\n!"
+
+ There are other ways to store strings and data, but this will do for our
+ purposes here.
+
+ We also can use nasm to put a label on this data, so that we can reference
+ the address in our code. Our label in this case is "msg:", which appears
+ towards the top of the code.
+
+ Since we already know that our data is 10 bytes, we can just put a 10 into
+ dl, rather than relying on nasm to calculate that for us. It's important to
+ keep track of data sizes and lengths when you're writing things like this!
+
+ We've covered a lot of weird stuff quickly, so let's move on to the next
+ section and do our final bits of optimization in this course.
+
+[ Changes ]
+
+ - Use custom binary template.
+ - Put string in the elf header.
+
+ -----------------------------------------------------------------------------
+  [ PREV ] curl -sL n0.lol/i2ao/3             [ NEXT ] curl -sL n0.lol/i2ao/5

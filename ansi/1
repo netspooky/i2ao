@@ -1,0 +1,31 @@
+[0m[1;31m--- [35m[[37m1[35m][0m [1;33mHello World In C[0m [1;31m---------------------------------------------------[37m//[31m--
+[0m
+// Our Code
+[1;31m#include [32m<stdio.h>[0m
+
+[1;34mint[0m [1;35mmain[37m() {[0m
+   [1;35mprintf[37m([33m"[^0^] u!![36m\n[33m"[37m);[0m
+   [1;32mreturn[36m 0[37m;[0m
+[1m}[0m
+// End Code
+
+[1m We begin with our Hello World Program. It is going to print [0m"[1;33m[^0^] u!![0m"
+ [1mwith a new line at the end. Then it returns 0 to the operating system and[0m
+[1m exits.[0m
+
+[31m[[1;37m Compile [0;31m][37m
+
+[1;36m gcc hello.c -o hello[0m
+
+[31m[[1;37m Run [0;31m][37m
+
+[1;36m ./hello[0m
+
+[31m[[1;37m Analyze [0;31m][37m
+
+[1;36m readelf -a hello[0m
+ [1;36mobjdump -d hello -M intel[0m
+
+ [1;31m-----------------------------------------------------------------------------
+[32m  [0;31m[[1;32m [37mPREV[0m [31m][1;32m [36mcurl -sL n0.lol/i2ao/intro[0m         [31m[[1;37m NEXT[32m [0;31m][1;32m [36mcurl -sL n0.lol/i2ao/2
+

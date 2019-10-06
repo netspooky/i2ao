@@ -1,0 +1,134 @@
+[0m[1;31m--- [35m[[37m4[35m][0m [1;33mWriting an ELF binary from scratch[0m [1;31m---------------------------------[37m//[31m--
+[0m
+[1m In our last two assembly examples, we used [36mnasm[37m to assemble our code, and [36mld[37m
+ to link it. The binary was very small, because it was written and assembled in
+ this way. Nasm created an ELF binary for us by using the flag -f elf64, which
+ uses the well defined ELF binary format and loads our code into it.
+
+ The next part takes this a step further, where we don't rely on nasm to create
+ an ELF binary for us. We will create the binary ourselves using a custom ELF
+ template. The template itself is mainly here for rapid prototyping of shell
+ code, and allows you to create more reliable payloads using a very well
+ defined structure.
+
+ If you want to read more about the development of this template, you can refer
+ to my previous write ups on [36mELF Binary Mangling[37m, as well as my [36mgolfclub[37m repo.
+[0m [1mLinks are on my website: [32mhttps://n0.lol
+[0m
+[31m---[1;37m Using the custom template [0;31m---
+[1;37m
+ There is so much to cover involving ELF binaries that we won't cover now.
+ I'll run down the most important aspects of it for the purposes of this
+ presentation
+
+ [0;31m-[1;37m Everything is hand defined according to the ELF spec
+ [0;31m-[1;37m There are locations in the header that we can hide data.
+ [0;31m-[1;37m You have 12 bytes to work with from 0x04 to 0x0F
+
+ We are going to jump right into some dirty tricks to hide data, and reference[0m
+[1m with our optimized code.
+
+[0;31m[[1;37m CODE - tiny.asm [0;31m][37m
+
+[1;35mBITS[37m [32m64[37m
+        [35morg[37m [32m0x100000000[0m  ; Where to load this into memory
+;----------------------+------+-------------+----------+------------------------
+; ELF Header struct    | OFFS | ELFHDR      | PHDR     | ASSEMBLY OUTPUT
+;----------------------+------+-------------+----------+------------------------
+[1m        [35mdb[37m [32m0x7F[37m, [33m"ELF"[0m ; 0x00[1m [0m| e_ident     |          | 7f 45 4c 46
+[1;35mmsg:[37m    [35mdd [32m0x5e305e5b[37m  [0m;[1m [0m0x04[1m [0m|             |          | 5b 5e 30 5e "^0^["
+[1m        [35mdd [32m0x2175205d[36m  [0m;[1m [0m0x08 |             |[1m          [0m| 5d 20 75 21 "!u ]"
+[1m        [35mdw[37m [32m0x0a21      [0m;[1m [0m0x0C[1m [0m|[1m             [0m|[1m          [0m| 21 0a       "\n!"
+[1m        [35mdw[37m [32m0x0         [0m; 0x0E |[1m             [0m|[1m          [0m| 00 00
+;----------------------+------+-------------+----------+------------------------
+; ELF Header struct ct.| OFFS | ELFHDR      | PHDR     | ASSEMBLY OUTPUT
+;----------------------+------+-------------+----------+------------------------
+[1m        [35mdw[36m [32m2[36m           [0m; 0x10 |[1m [0me_type      |[1m          [0m|[1m [0m02 00
+[1m        [35mdw[36m [32m0x3e[37m        [0m; 0x12 |[1m [0me_machine   |[1m          [0m| 3e 00
+[1m        [35mdd [32m1           [0m; 0x14 | e_version   |          | 01 00 00 00
+[1m        [35mdd[37m [35m_start[37m - [35m$$ [0m; 0x18[1m [0m| e[1m_[0mentry     |          | 04 00 00 00[1m
+[0m;----------------------+------+-------------+----------+------------------------
+; Program Header Begin | OFFS | ELFHDR      | PHDR     | ASSEMBLY OUTPUT
+;----------------------+------+-------------+----------+------------------------
+[1;35mphdr:   dd[37m [32m1[37m           [0m; 0x1C |   ...       | p_type   | 01 00 00 00
+[1m        [35mdd phdr[37m -[35m $$[37m   [0m; 0x20 | e_phoff     | p_flags  | 1c 00 00 00
+[1m        [35mdd[37m [32m0[37m           [0m; 0x24 |   ...       | p_offset[1m [0m|[1m [0m00 00 00 00
+[1m        [35mdd[37m [32m0[37m           [0m; 0x28 | e_shoff     |   ...    | 00 00 00 00[1m
+        [35mdq[37m [35m$$[37m          [0m; 0x2C |[1m   .[0m..       | p_vaddr  | 00 00 00 00
+[1m                       [0m; 0x30 | e_flags     |   ...    | 01 00 00 00
+[1m        [35mdw[37m [32m0x40        [0m; 0x34 | e_shsize    | p_addr[1m   [0m| 40[1m [0m00
+[1m        [35mdw[36m [32m0x38        [0m;[1m [0m0x36 | e_phentsize |   ...    | 38 00
+[1m        [35mdw[36m [32m1[37m           [0m;[1m [0m0x38 |[1m [0me_phnum     |   ...[1m    [0m| 01 00
+[1m        [35mdw[37m [32m2[37m           [0m;[1m [0m0x3A | e_shentsize[1m [0m|[1m   [0m...[1m    [0m| 02 00
+[1m        [35mdq[37m [32m2[37m           [0m;[1m [0m0x3C[1m [0m| e_shnum[1m     [0m| p_filesz[1m [0m| 02 00 00 00 00 00 00 00
+[1m        [35mdq[37m [32m2[37m           [0m;[1m [0m0x44[1m [0m|[1m             [0m| p_memsz  | 02[1m [0m00 00 00 00 00 00 00
+[1m        [35mdq[37m [32m2[37m           [0m;[1m [0m0x4C |             | p_align  | 02 00 00 00 00 00 00 00
+;--- END OF HEADER -------------------------------------------------------------
+[1;35m_start:[37m
+[0m;--- Write -----------------------------------------------------------------//--
+[1m  [31mmov[37m [36mal[37m, [32m1[37m
+  [31mmov[37m [36mrdi[37m, [36mrax[37m
+  [31mmov[37m [36mrsi[37m, [36mmsg[37m
+  [31mmov[36m dl[37m, [32m10
+[37m  [31msyscall[37m
+[0m;--- Exit ------------------------------------------------------------------//--
+[1m  [31mmov[37m [36mal[37m, [32m60
+[37m  [31mxor[37m [36mrdi[37m, [36mrdi[37m
+  [31msyscall[37m
+
+[0;31m[ [1;37mBuild [0;31m]
+[37m
+[1;36m  nasm -f bin -o tiny tiny.asm
+[37m
+[0m [1mWe are now building using the raw bin format. This instructs nasm to not
+ apply any binary templates to the assembled code. This is similar to how[0m
+[1m you compile 16 bit COM files for DOS.[0m
+
+[31m[ [1;37mHiding Data [0;31m]
+[37m
+[1m Since we've jumped right into this hot mess of a binary, we're going to[0m
+[1m use some of the features of the template as described above.[0m
+
+ [1mSince we know that our string "[^0^] u!!\n" is 10 bytes long, and we have[0m
+[1m 12 bytes to hide data from 0x04 to 0x0F, let's pack our string into this[0m
+[1m space.
+[0m
+[1m Nasm can store chunks of data like so[0m
+[1m
+      dq[0m [1m0x0123456789ABCDEF[0m      [1m8 bytes - Quad Word[0m
+[1m      dd[0m [1m0x012345678[0m             [1m4 bytes - Double Word[0m
+[1m      dw[0m [1m0x0123[0m                  [1m2 bytes - Word[0m
+[1m      db[0m [1m0x01[0m                    [1m1 byte  - Byte[0m
+
+ [1mTo store our string, we need to divide it up and store it in little endian[0m
+ [1mformat for nasm to assemble it correctly.[0m
+
+[1m Our chunks will look like this[0m
+
+    [1mdd 0x5e305e5b[0m [1m;[0m [1m"^0^["[0m
+    [1mdd 0x2175205d ;[0m [1m"!u ]"[0m
+    [1mdw 0x0a21     ;[0m [1m"\n!"
+[0m
+ [1mThere are other ways to store strings and data, but this will do for our
+[0m [1mpurposes here.[0m
+
+ [1mWe also can use nasm to put a label on this data, so that we can reference[0m
+[1m the address in our code. Our label in this case is "msg:", which appears[0m
+[1m towards the top of the code.[0m
+
+ [1mSince we already know that our data is 10 bytes, we can just put a 10 into[0m
+[1m dl, rather than relying on nasm to calculate that for us. It's important to[0m
+[1m keep track of data sizes and lengths when you're writing things like this![0m
+
+ [1mWe've covered a lot of weird stuff quickly, so let's move on to the next[0m
+[1m section and do our final bits of optimization in this course.[0m
+
+[31m[ [1;37mChanges [0;31m][37m
+[1m
+[0;31m - [1;37mUse custom binary template.
+[0;31m -[1;37m Put string in the elf header.[0m
+[31m
+[37m [1;31m-----------------------------------------------------------------------------
+[32m  [0;31m[[1;32m [37mPREV[0m [31m][1;32m [36mcurl -sL n0.lol/i2ao/3             [0;31m[[1;37m NEXT[32m [0;31m][1;32m [36mcurl -sL n0.lol/i2ao/5
+[0m
+

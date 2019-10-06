@@ -1,0 +1,48 @@
+--- Intro to Assembly Optimization -----------------------------------------//--
+
+ Hello and welcome to the terminal friendly documentation for the Intro to
+ Assembly Optimization workshop. This workshop is a rough draft of what may
+ eventually become a full on exploit development training.
+
+ The target audience is anyone that has a working understanding of programming
+ and some familiarity with low level concepts. This workshop will explore the
+ optimization of a "Hello World" program, and take it from C all the way down
+ to a highly optimized, hand written, 64 bit ELF binary.
+
+ This documentation contains notes that you can use to follow along during the
+ stream.
+
+--- Outline ----------------------------------------------------------------//--
+       [1] ......................Hello World in C  curl -sL n0.lol/i2ao/1
+
+       [2] ...............Hello World in Assembly  curl -sL n0.lol/i2ao/2
+
+       [3] ....Optimizing Hello World in Assembly  curl -sL n0.lol/i2ao/3
+
+       [4] ....Writing an Elf binary from Scratch  curl -sL n0.lol/i2ao/4
+
+       [5] ..................Further Optimization  curl -sL n0.lol/i2ao/5
+
+--- Tools ------------------------------------------------------------------//--
+[ Required ]
+
+ - A Linux System
+ - GCC
+ - GNU binutils
+ - xxd or other hex editor
+ - A text editor
+
+[ Optional ]
+
+ - Radare2 - For debugging
+ - Linux Man Pages
+
+[ Online Resources ]
+
+ - Online Disassembler
+   https://defuse.ca/online-x86-assembler.htm
+ - Syscall Table
+   https://syscalls64.paolostivanin.com/
+
+ -----------------------------------------------------------------------------
+                                              [ NEXT ] curl -sL n0.lol/i2ao/1

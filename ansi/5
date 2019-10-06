@@ -1,0 +1,143 @@
+[0m[1;31m--- [35m[[37m5[35m][0m [1;33mFurther Optimizations [31m----------------------------------------------[37m//[31m--[0m
+
+[1m Now that we have a whacky ELF binary to mess around in, and have established
+ methods of referencing data, here is where the more interesting things begin.[0m
+[1m
+ Let's take a look at the code and build it, then discuss what is going on.
+
+[0;31m[[1;37m Code - smol.asm[0;31m ][37m
+
+[1;35mBITS[37m [32m64[37m
+        [35morg[37m [32m0x100000000[0m  ; Where to load this into memory
+;----------------------+------+-------------+----------+------------------------
+; ELF Header struct    | OFFS | ELFHDR      | PHDR     | ASSEMBLY OUTPUT
+;----------------------+------+-------------+----------+------------------------
+[1m        [35mdb[37m [32m0x7F[37m, [33m"ELF"[0m ; 0x00[1m [0m| e_ident     |          | 7f 45 4c 46
+[1;35mmsg:[37m    [35mdd [32m0x5e305e5b[37m  [0m;[1m [0m0x04[1m [0m|             |          | 5b 5e 30 5e "^0^["
+[1m        [35mdd [32m0x2175205d[36m  [0m;[1m [0m0x08 |             |[1m          [0m| 5d 20 75 21 "!u ]"
+[1m        [35mdw[37m [32m0x0a21      [0m;[1m [0m0x0C[1m [0m|[1m             [0m|[1m          [0m| 21 0a       "\n!"
+[1m        [35mdw[37m [32m0x0         [0m; 0x0E |[1m             [0m|[1m          [0m| 00 00
+;----------------------+------+-------------+----------+------------------------
+; ELF Header struct ct.| OFFS | ELFHDR      | PHDR     | ASSEMBLY OUTPUT
+;----------------------+------+-------------+----------+------------------------
+[1m        [35mdw[36m [32m2[36m           [0m; 0x10 |[1m [0me_type      |[1m          [0m|[1m [0m02 00
+[1m        [35mdw[36m [32m0x3e[37m        [0m; 0x12 |[1m [0me_machine   |[1m          [0m| 3e 00
+[1m        [35mdd [32m1           [0m; 0x14 | e_version   |          | 01 00 00 00
+[1m        [35mdd[37m [35m_start[37m - [35m$$ [0m; 0x18[1m [0m| e[1m_[0mentry     |          | 04 00 00 00[1m
+[0m;----------------------+------+-------------+----------+------------------------
+; Program Header Begin | OFFS | ELFHDR      | PHDR     | ASSEMBLY OUTPUT
+;----------------------+------+-------------+----------+------------------------
+[1;35mphdr:   dd[37m [32m1[37m           [0m; 0x1C |   ...       | p_type   | 01 00 00 00
+[1m        [35mdd phdr[37m -[35m $$[37m   [0m; 0x20 | e_phoff     | p_flags  | 1c 00 00 00
+[1m        [35mdd[37m [32m0[37m           [0m; 0x24 |   ...       | p_offset[1m [0m|[1m [0m00 00 00 00
+[1m        [35mdd[37m [32m0[37m           [0m; 0x28 | e_shoff     |   ...    | 00 00 00 00[1m
+        [35mdq[37m [35m$$[37m          [0m; 0x2C |[1m   .[0m..       | p_vaddr  | 00 00 00 00
+[1m                       [0m; 0x30 | e_flags     |   ...    | 01 00 00 00
+[1m        [35mdw[37m [32m0x40        [0m; 0x34 | e_shsize    | p_addr[1m   [0m| 40[1m [0m00
+[1m        [35mdw[36m [32m0x38        [0m;[1m [0m0x36 | e_phentsize |   ...    | 38 00
+[1m        [35mdw[36m [32m1[37m           [0m;[1m [0m0x38 |[1m [0me_phnum     |   ...[1m    [0m| 01 00
+[1m        [35mdw[37m [32m2[37m           [0m;[1m [0m0x3A | e_shentsize[1m [0m|[1m   [0m...[1m    [0m| 02 00
+[1m        [35mdq[37m [32m2[37m           [0m;[1m [0m0x3C[1m [0m| e_shnum[1m     [0m| p_filesz[1m [0m| 02 00 00 00 00 00 00 00
+[1m        [35mdq[37m [32m2[37m           [0m;[1m [0m0x44[1m [0m|[1m             [0m| p_memsz  | 02[1m [0m00 00 00 00 00 00 00
+[1m        [35mdq[37m [32m2[37m           [0m;[1m [0m0x4C |             | p_align  | 02 00 00 00 00 00 00 00
+;--- END OF HEADER -------------------------------------------------------------
+[1;35m_start:[37m
+[0m;--- Write -----------------------------------------------------------------//--
+[1m  [31mmov[37m [36mal[37m, [32m1[37m
+  [0m; mov rdi, rax
+[1m  [31mmov[37m [36medi[37m, [36meax[37m
+  [0m; mov rsi, msg
+[1m  [31mmov[37m [36mesi[37m, [36meax[37m
+  [31mshl[37m [36mrsi[37m, [32m0x20[37m
+  [31mmov[37m [36msil[37m, [32m4[37m
+  [31mmov[37m [36mdl[37m, [32m10[37m
+  [31msyscall[37m
+[0m;--- Exit ------------------------------------------------------------------//--
+[1m  [31mmov[37m [36mal[37m, [32m60[37m
+  [31mxor[37m [36mrdi[37m, [36mrdi
+[37m  [31msyscall[37m
+
+[0;31m[[1;37m Build [0;31m]
+[37m
+[1;36m  nasm -f bin -o smol smol.asm
+[37m
+[0;31m[[1;37m Creating Addresses [0;31m]
+[37m
+[1m Because we're working on such a small scale, everything feels more immediate.[0m
+ [1mWe know what is at every byte in our binary, and we can therefore rely on[0m
+[1m a consistent location to refer to.[0m
+
+[1m Our previous binary referenced the memory address for our string at the
+ address [32m0x100000004.[37m The instruction to do this was:[0m
+
+  [1;33m48be0400000001000000[37m  [31mmovabs[36m rsi[37m, [32m0x100000004
+[0m
+ [1mThis is a very long instruction, a total of 10 bytes due to needing a 64 bit[0m
+[1m register to hold the address.[0;31m [1;37mWe can create this manually and save space by[0m
+[1m building the address. Here's the process.[0m
+
+     [1;33m89 c6[37m        [31mmov[37m    [36mesi[37m,[32meax
+[0m     [1;33m48 c1 e6 20[37m  [31mshl[37m    [36mrsi[37m,[32m0x20[0m
+     [1;33m40 b6 04     [31mmov[37m    [36msil[37m,[32m0x4[37m
+[0m
+ [1mWe copy the value in [36mEAX[37m, which is 1, into[36m ESI[37m.[0m
+
+     [1;36mRSI[37m [0m000000000000000000000000000000000000000000000000000000000000000[1;33m1[0m
+
+ [1mThen we shift[36m RSI [37mto the left by 32 bits (0x20).[0m
+
+     [1;36mRSI [0m0000000000000000000000000000000[1;33m1[0m00000000000000000000000000000000[31m
+[37m
+ [1mThis creates the value [32m0x100000000[37m, which is the base address of where we[0m
+[1m loaded the binary into memory.
+[0m
+ [1mNext, we use the lower 8 bits of[36m RSI[37m to load the last value we need, 4. We[0m
+ [1mnow have the address of our string, [32m0x100000004[33m
+[0m
+     [1;36mRSI [0m0000000000000000000000000000000[1;33m1[0m00000000000000000000000000000[1;33m1[0m00
+
+ [1mThis saves us an Earth shattering 1 byte, but it also introduces a very[0m
+[1m important concept in developing exploits.[0m
+
+ [1mShellcode is injected by a variety of means, and when creating a proper[0m
+[1m payload for a buffer or heap overflow, certain bytes may be ignored by the[0m
+[1m application that is being exploited, or by other things like servers that[0m
+[1m don't handle bytes like [33m00 (NULL)[37m, [33m0A (\n)[37m or [33m0D (\r)[37m in a way that you may[0m
+[1m be hoping for.[0m
+
+ [1mCertain tools, such as [36mmsfvenom[37m, are capable of creating payloads that avoid[0m
+ [1mspecific bytes ("bad chars"), to aid in exploitation. If we were injecting[0m
+ [1mthis payload, there are other ways of referencing strings, such as by direct[0m
+ [1mloading of the desired bytes into registers and then pushing onto the stack,[0m
+ [1mbut I wanted to demonstrate methods of referencing data that can be applied[0m
+[1m to other programs in assembly.
+[0m
+[31m[[1;37m Other optimizations[0;31m ]
+[37m
+[1m The last optimization we are doing in this lesson is copying [36mEAX[37m to [36mEDI[37m,[0m
+[1m rather than copying [36mRAX [37mto [36mRDI[37m. When you move data between two 32 bit
+[0m [1mregisters, the upper 32 bits will be zero'd out. This is not the case for[0m
+[1m the lower registers. Moving data to AL preserves the rest of the data in the[0m
+[1m upper 56 bits. This is what enabled us to move 4 into SIL in the last[0m
+[1m section.[0m
+
+[1m  [33m48 89 c7[37m [31mmov[37m    [36mrdi[37m,[36mrax
+[37m
+ becomes
+
+  [33m89 c7    [31mmov    [36medi[37m,[36meax[37m
+[0m
+ [1mAnother two byte instruction to achieve a similar effect is [31minc[37m [36medi[37m, which[0m
+[1m increments [36mEDI[37m by 1 from 0.[0m
+
+[31m[ [1;37mChanges [0;31m]
+[1;37m
+[0m [31m- [1;37mSwitch[36m RDI [37mwith [36mEDI[37m
+[0m [31m-[1;37m Instead of loading the address of the string into [36mRSI[37m directly,
+[0m   [1mconstruct the address by shifting 0x left 20 bits and then moving 4 into [36mSI
+[0m
+ [1;31m-----------------------------------------------------------------------------
+[32m  [0;31m[[1;32m [37mPREV[0m [31m][1;32m [36mcurl -sL n0.lol/i2ao/4
+[0m
+
+
