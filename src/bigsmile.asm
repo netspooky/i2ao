@@ -1,9 +1,9 @@
-SECTION .DATA
+section .data
   msg:     db "[^0^] u!!",10
   msgLen:  equ $-msg
 
-SECTION .TEXT
-GLOBAL _start 
+section .text
+global _start 
 
 _start:
 ; Print ----------------------------------------------------------------
